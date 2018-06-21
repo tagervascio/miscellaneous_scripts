@@ -3,16 +3,31 @@
 use warnings;
 use strict;
 
-use Text::CSV_XS;
-use Bio::DB::EUtilities;
-use Bio::SeqIO;
-use Bio::DB::EUtilities;
-use Bio::SeqIO;
-#use 5.18.2; #not really needed
+use 5.18.2;          #not really needed
+use Term::ANSIColor; #for highlighting certain outputs
+use File::Path;      #makes directories
+use Text::CSV_XS;    #parses csv files
+
+use Bio::DB::EUtilities; #Bioperl @ bioperl.org
+use Bio::SeqIO;          #Bioperl @ bioperl.org
+use Bio::DB::EUtilities; #Bioperl @ bioperl.org
+use Bio::SeqIO;          #Bioperl @ bioperl.org
+
 binmode STDOUT, ":utf8"; #Quiet the "wide character warning" on print()
 
 
 #TODO: create the %loci hash automatically using the header row of the csv (first row)
+
+print colored(['red on_bright_yellow'],"Databases sometimes require you to send an email address with your request, enter one now: ");
+chomp(state $user_email=<STDIN>);
+
+#These next three lines create the directory ~/.snailpipe and a subfolder named
+#after the system date and time for each run of the script. The 'eutils'
+#subroutine places its output files in this handy directory to keep things
+#organized.
+my $date_time = localtime =~ s/ /_/gr;
+state $output_path = "$ENV{HOME}/.snailpipe/$date_time";
+mkpath("$output_path") or die "Cannot make directory $output_path: $! \n";
 
 my %loci = (
         'apples'        =>      1,
@@ -20,11 +35,11 @@ my %loci = (
         'strawberries'  =>      3,
         'cranberry'     =>      4,
 );
-my @loci_list = values %loci; #list of column numbers to use
+my @loci_list = values %loci; #list of column numbers to use e.g. 1,2,3,4,...
 
 
 #This loop extracts the data from the csv one column at a time and passes it to
-#the bioperl eutilitues wrapper for downloading.
+#the bioperl eutilitues wrapper in for downloading.
 foreach my $column(@loci_list){
         my @collected_data = &column_grabber($column);
         my $loci_name = shift (@collected_data);
@@ -32,8 +47,9 @@ foreach my $column(@loci_list){
         &eutils(\@collected_data, $loci_name);
 }
 
-print "Check the directory where this script is located for your sequences!
-        Happy aligning :)\n" or die "Something happened: $!";
+print "Check the $output_path directory for your sequences!\n
+HEADS UP: MacOS changes the : to / in the file name.\n
+Happy aligning :)\n";
 
 sub column_grabber {
         #This subroutine accepts a scalar column number and returns the data
@@ -58,9 +74,9 @@ sub eutils {
         my $factory = Bio::DB::EUtilities->new(-eutil   => 'efetch',
                                                -db      => 'nucleotide',
                                                -rettype => 'gb',
-                                               -email   => 't.13210@outlook.com',
+                                               -email   => $user_email,
                                                -id      => \@ids);
-        my $file = "$loci_name\.gb";
+        my $file = "$output_path/$loci_name\.gb";
         print "$file \n";
         $factory->get_Response(-file => $file);
         my $seqin = Bio::SeqIO->new(-file => $file,
@@ -69,8 +85,6 @@ sub eutils {
                 print "$seq \n";
         }
 }
-
-
 
 ##############################
 #       code graveyard       #
